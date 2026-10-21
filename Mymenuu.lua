@@ -1,115 +1,35 @@
-
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
-local TeleportService = game:GetService("TeleportService")
-local SoundService = game:GetService("SoundService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- [[ INITIALIZE STATE TRACKING ]] --
-local Toggles = { Fly = false, Noclip = false, Aimbot = false, ESP = false, Tracers = false, KillAll = false, Music = false, Rainbow = false }
+-- Global Folder for 3D Visuals (ESP Fix)
+local VisualsFolder = workspace:FindFirstChild("Visuals") or Instance.new("Folder", workspace)
+VisualsFolder.Name = "Visuals"
+
+local Window = Rayfield:CreateWindow({
+   Name = "my Menu V1.0",
+   LoadingTitle = "Do people even read this...",
+   ConfigurationSaving = { Enabled = false }
+})
+
+-- [[ STATE ]] --
+local Toggles = { Fly = false, Noclip = false, Aimbot = false, ESP = false, Tracers = false, Disco = false }
 local FlySpeed, WalkSpeed = 50, 16
 local BodyVel, BodyGyr
-local CurrentRainbowColor = Color3.fromRGB(255, 0, 0)
 
--- Configure Universal Audio Track Asset
-local BackgroundSound = SoundService:FindFirstChild("XenoBackgroundMusic") or Instance.new("Sound")
-BackgroundSound.Name = "XenoBackgroundMusic"
-BackgroundSound.SoundId = "rbxassetid://9045765634" 
-BackgroundSound.Volume = 0.75
-BackgroundSound.Looped = true
-BackgroundSound.Parent = SoundService
-
--- [[ BYPASS PIPELINE: DRAW OVER CHARACTER HEAD ]] --
-local function AttachBypassMenu()
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local Head = Character:WaitForChild("Head", 15)
-    if not Head then return end
-    
-    -- Cleanup previous clones to completely patch re-execution or respawn bugs
-    if Head:FindFirstChild("XenoBypassContainer") then Head.XenoBypassContainer:Destroy() end
-    
-    local Billboard = Instance.new("BillboardGui")
-    Billboard.Name = "XenoBypassContainer"
-    Billboard.Size = UDim2.new(0, 240, 0, 295)
-    Billboard.Adornee = Head
-    Billboard.AlwaysOnTop = true 
-    Billboard.ExtentsOffset = Vector3.new(0, 3.5, 0) 
-    Billboard.Parent = Head
-    
-    local MainBox = Instance.new("Frame")
-    MainBox.Size = UDim2.new(1, 0, 1, 0)
-    MainBox.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-    MainBox.BorderSizePixel = 1
-    MainBox.BorderColor3 = Color3.fromRGB(220, 0, 0) 
-    MainBox.Parent = Billboard
-    Instance.new("UICorner", MainBox).CornerRadius = UDim.new(0, 4)
-    
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, -30, 0, 28)
-    Title.BackgroundColor3 = Color3.fromRGB(25, 15, 15)
-    Title.Text = "  idk Client (Xeno Bypass V2)"
-    Title.TextColor3 = Color3.fromRGB(255, 50, 50)
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 11
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = MainBox
-    
-    -- Top-Right Corner Close Button
-    local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 30, 0, 28)
-    CloseBtn.Position = UDim2.new(1, -30, 0, 0)
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 15, 15)
-    CloseBtn.BorderSizePixel = 0
-    CloseBtn.Text = "X"
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 12
-    CloseBtn.Parent = MainBox
-    
-    CloseBtn.MouseButton1Click:Connect(function()
-        MainBox.Visible = false
-    end)
-    
-    local Scroller = Instance.new("ScrollingFrame")
-    Scroller.Size = UDim2.new(1, -10, 1, -38)
-    Scroller.Position = UDim2.new(0, 5, 0, 33)
-    Scroller.BackgroundTransparency = 1
-    Scroller.CanvasSize = UDim2.new(0, 0, 0, 390)
-    Scroller.ScrollBarThickness = 2
-    Scroller.Parent = MainBox
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.Padding = UDim.new(0, 5)
-    ListLayout.Parent = Scroller
-    
-    local function CreateMenuButton(text, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 28)
-        btn.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-        btn.BorderSizePixel = 0
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-        btn.Font = Enum.Font.GothamSemibold
-        btn.TextSize = 11
-        btn.Parent = Scroller
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        
-        btn.MouseButton1Click:Connect(function() pcall(callback, btn) end)
-        return btn
-    end
-    
-    -- [[ CORE ACTIONS BINDING PORT ]] --
-    
-    CreateMenuButton("Flight (WASD): OFF", function(btn)
-        Toggles.Fly = not Toggles.Fly
-        btn.Text = "Flight (WASD): " .. (Toggles.Fly and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.Fly and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-        
-        local Root = Character:FindFirstChild("HumanoidRootPart")
-        if Toggles.Fly and Root then
+-- [[ TAB: MOVEMENT ]] --
+local MoveTab = Window:CreateTab("Movement", 4483362458)
+MoveTab:CreateToggle({
+    Name = "Flight (WASD)", 
+    CurrentValue = false, 
+    Callback = function(V) 
+        Toggles.Fly = V 
+        local Root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if V and Root then
             BodyVel = Instance.new("BodyVelocity", Root)
             BodyVel.MaxForce = Vector3.new(1e6, 1e6, 1e6)
             BodyGyr = Instance.new("BodyGyro", Root)
@@ -117,101 +37,169 @@ local function AttachBypassMenu()
         else
             if BodyVel then BodyVel:Destroy() end
             if BodyGyr then BodyGyr:Destroy() end
-            if Character:FindFirstChild("Humanoid") then Character.Humanoid.PlatformStand = false end
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.PlatformStand = false
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
         end
-    end)
+    end
+})
+MoveTab:CreateSlider({Name = "Fly Speed", Range = {10, 500}, Increment = 1, CurrentValue = 50, Callback = function(V) FlySpeed = V end})
+MoveTab:CreateSlider({Name = "Walk Speed", Range = {16, 250}, Increment = 1, CurrentValue = 16, Callback = function(V) WalkSpeed = V end})
+MoveTab:CreateToggle({Name = "Noclip", CurrentValue = false, Callback = function(V) Toggles.Noclip = V end})
+
+-- [[ TAB: COMBAT ]] --
+local CombatTab = Window:CreateTab("Combat", 4483362458)
+CombatTab:CreateToggle({Name = "Aimbot", CurrentValue = false, Callback = function(V) Toggles.Aimbot = V end})
+CombatTab:CreateToggle({Name = "Box ESP", CurrentValue = false, Callback = function(V) Toggles.ESP = V end})
+CombatTab:CreateToggle({Name = "Tracers", CurrentValue = false, Callback = function(V) Toggles.Tracers = V end})
+
+-- [[ TAB: VISUALS ]] --
+local VisualTab = Window:CreateTab("Visuals", 4483362458)
+VisualTab:CreateToggle({Name = "Disco Sky", CurrentValue = false, Callback = function(V) Toggles.Disco = V end})
+VisualTab:CreateButton({Name = "Reset Lighting", Callback = function() Toggles.Disco = false; Lighting.Ambient = Color3.fromRGB(127,127,127); Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127) end})
+
+-- [[ TAB: GAMES ]] --
+local GamesTab = Window:CreateTab("Games", 4483362458)
+
+GamesTab:CreateButton({
+    Name = "99 Nights in the Forest",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Executing 99 Nights",
+            Content = "Loading Voidware script...",
+            Duration = 3,
+            Image = 4483362458,
+        })
+        
+        task.spawn(function()
+            local success, err = pcall(function()
+                loadstring(game:HttpGet("https://files.vapevoidware.xyz/VapeVoidware/VW-Add/main/loader.lua", true))()
+            end)
+            if not success then
+                warn("Failed to load 99 Nights script: " .. tostring(err))
+            end
+        end)
+    end
+})
+
+GamesTab:CreateButton({
+    Name = "Steal an Egg",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Executing Steal an Egg",
+            Content = "Loading ONhub script...",
+            Duration = 3,
+            Image = 4483362458,
+        })
+        
+        task.spawn(function()
+            local success, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/davizin713/ONhub/refs/heads/main/main.lua", true))()
+            end)
+            if not success then
+                warn("Failed to load Steal an Egg script: " .. tostring(err))
+            end
+        end)
+    end
+})
+
+-- [[ TAB: DISCORD ]] --
+local DiscordTab = Window:CreateTab("Discord", 4483362458)
+DiscordTab:CreateButton({
+    Name = "Copy Discord Link",
+    Callback = function()
+        setclipboard("https://discord.gg/ckHuejszg") 
+        Rayfield:Notify({
+            Title = "Link Copied!",
+            Content = "The Discord invite has been copied to your clipboard. Paste it in your browser!",
+            Duration = 5,
+            Image = 4483362458,
+        })
+    end
+})
+
+--- [[ FIXED VISUAL ENGINE (ESP & TRACERS) ]] ---
+local function CreateVisuals(plr)
+    if plr == LocalPlayer then return end
+    local function Apply(char)
+        local root = char:WaitForChild("HumanoidRootPart", 10)
+        if not root then return end
+        
+        local hl = Instance.new("Highlight", char)
+        hl.FillColor = Color3.fromRGB(255, 0, 0)
+        
+        local line = Instance.new("LineHandleAdornment", VisualsFolder)
+        line.Thickness, line.AlwaysOnTop, line.Color3 = 2, true, Color3.fromRGB(255, 0, 0)
+
+        local conn; conn = RunService.RenderStepped:Connect(function()
+            if not char or not char.Parent then line:Destroy(); conn:Disconnect(); return end
+            hl.Enabled = Toggles.ESP
+            if Toggles.Tracers and root then
+                local _, OnScreen = Camera:WorldToViewportPoint(root.Position)
+                if OnScreen then
+                    line.Visible = true; line.Adornee = workspace.Terrain
+                    local Start = Camera:ViewportPointToRay(Camera.ViewportSize.X/2, Camera.ViewportSize.Y).Origin
+                    line.CFrame = CFrame.new(Start, root.Position); line.Length = (Start - root.Position).Magnitude
+                else line.Visible = false end
+            else line.Visible = false end
+        end)
+    end
+    if plr.Character then Apply(plr.Character) end
+    plr.CharacterAdded:Connect(Apply)
+end
+
+for _, p in pairs(Players:GetPlayers()) do CreateVisuals(p) end
+Players.PlayerAdded:Connect(CreateVisuals)
+
+--- [[ MOVEMENT & COMBAT ENGINE ]] ---
+RunService.RenderStepped:Connect(function()
+    local Char = LocalPlayer.Character
+    if not Char or not Char:FindFirstChild("Humanoid") then return end
+    Char.Humanoid.WalkSpeed = WalkSpeed
+
+    if Toggles.Fly and BodyVel and BodyGyr then
+        Char.Humanoid.PlatformStand = true
+        local Dir = Vector3.new(0,0,0)
+        if UIS:IsKeyDown(Enum.KeyCode.W) then Dir = Dir + Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then Dir = Dir - Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then Dir = Dir - Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then Dir = Dir + Camera.CFrame.RightVector end
+        BodyVel.Velocity = Dir * FlySpeed
+        BodyGyr.CFrame = Camera.CFrame
+    end
     
-    CreateMenuButton("Toggle Speed (100 / 16)", function(btn)
-        if WalkSpeed == 16 then WalkSpeed = 100 else WalkSpeed = 16 end
-        btn.Text = "Current Speed: " .. tostring(WalkSpeed)
-        if not Toggles.Rainbow then btn.BackgroundColor3 = WalkSpeed == 100 and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-    end)
-    
-    CreateMenuButton("Noclip Hack: OFF", function(btn)
-        Toggles.Noclip = not Toggles.Noclip
-        btn.Text = "Noclip Hack: " .. (Toggles.Noclip and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.Noclip and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-    end)
-    
-    CreateMenuButton("Aimbot Tracking: OFF", function(btn)
-        Toggles.Aimbot = not Toggles.Aimbot
-        btn.Text = "Aimbot Tracking: " .. (Toggles.Aimbot and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.Aimbot and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-    end)
-    
-    CreateMenuButton("Wall ESP Visuals: OFF", function(btn)
-        Toggles.ESP = not Toggles.ESP
-        Toggles.Tracers = Toggles.ESP
-        btn.Text = "Wall ESP Visuals: " .. (Toggles.ESP and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.ESP and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-    end)
-    
-    CreateMenuButton("Teleport Kill Loop: OFF", function(btn)
-        Toggles.KillAll = not Toggles.KillAll
-        btn.Text = "Teleport Kill Loop: " .. (Toggles.KillAll and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.KillAll and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-    end)
-    
-    CreateMenuButton("RAINBOW WORLD MODE: OFF", function(btn)
-        Toggles.Rainbow = not Toggles.Rainbow
-        btn.Text = "RAINBOW WORLD MODE: " .. (Toggles.Rainbow and "ON" or "OFF")
-        if not Toggles.Rainbow then 
-            btn.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
-            Title.TextColor3 = Color3.fromRGB(255, 50, 50)
-            CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
-            MainBox.BorderColor3 = Color3.fromRGB(220, 0, 0)
-            Lighting.Ambient = Color3.fromRGB(127,127,127)
-            Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127)
-        end
-    end)
-    
-    CreateMenuButton("Play Audio Track: OFF", function(btn)
-        Toggles.Music = not Toggles.Music
-        btn.Text = "Play Audio Track: " .. (Toggles.Music and "ON" or "OFF")
-        if not Toggles.Rainbow then btn.BackgroundColor3 = Toggles.Music and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(28, 28, 32) end
-        if Toggles.Music then BackgroundSound:Play() else BackgroundSound:Stop() end
-    end)
-    
-    CreateMenuButton("Execute Max FPS Boost", function()
-        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        Lighting.GlobalShadows = false
-        Lighting.FogEnd = 9e9
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("Sky") then obj:Destroy()
-            elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then obj.Enabled = false
-            elseif obj:IsA("BasePart") and not Toggles.Rainbow then obj.Material = Enum.Material.SmoothPlastic end
-        end
-    end)
-    
-    CreateMenuButton("Server Hop", function()
-        local HttpService = game:GetService("HttpService")
-        local serversUrl = "https://roblox.com" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet(serversUrl)) end)
-        if success and result and result.data then
-            for _, server in ipairs(result.data) do
-                if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
-                    return
+    if Toggles.Aimbot then
+        local Target, Dist = nil, math.huge
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local Pos, OnScreen = Camera:WorldToViewportPoint(p.Character.PrimaryPart.Position)
+                if OnScreen then
+                    local Mag = (Vector2.new(Pos.X, Pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if Mag < Dist then Target = p; Dist = Mag end
                 end
             end
         end
-    end)
-    
-    -- [[ FIXED KEYBOARD TOGGLE LISTENERS ]] --
-    local controlConn; controlConn = UIS.InputBegan:Connect(function(input, chat)
-        if chat then return end
-        if input.KeyCode == Enum.KeyCode.RightControl then
-            if MainBox then MainBox.Visible = not MainBox.Visible end
+        if Target then Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Target.Character.PrimaryPart.Position), 0.2) end
+    end
+end)
+
+-- Noclip and Disco Loops...
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.05) do
+        if Toggles.Disco then
+            hue = (hue + 0.01) % 1
+            Lighting.Ambient = Color3.fromHSV(hue, 1, 1)
+            Lighting.OutdoorAmbient = Color3.fromHSV(hue, 1, 1)
         end
-    end)
-    
-    -- Dynamic Engine Connections to handle Rainbow layout modifications
-    local rainbowConn; rainbowConn = RunService.RenderStepped:Connect(function()
-        if not MainBox or not MainBox.Parent then rainbowConn:Disconnect() return end
-        if Toggles.Rainbow then
-            MainBox.BorderColor3 = CurrentRainbowColor
-            Title.TextColor3 = CurrentRainbowColor
-            CloseBtn.TextColor3 = CurrentRainbowColor
-            Lighting.Ambient = CurrentRainbowColor
-            Lighting.OutdoorAmbient = CurrentRainbowColor
-            -- Cycle background elements smoothly
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if Toggles.Noclip and LocalPlayer.Character then
+        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
